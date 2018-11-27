@@ -1,0 +1,126 @@
+# 通用配置部分
+spring:
+  main:
+    banner-mode: "off"
+# 指定当前激活的 Profile: local 用于本地开发, server 用于服务器单机部署, docker 用于容器化部署
+  profiles:
+    active: local
+    #active: server
+
+server:
+  port: 8082
+
+logging:
+  file: ./log/app.log
+
+format:
+  date: "yyyy-MM-dd HH:mm:ss"
+
+i18n:
+  default_language: Chinese
+
+# 配置登录方式(mode): basic - 用户名密码登录; ldap - 集成 LDAP 认证
+authentication:
+  mode: basic
+
+# JSON Web Token, 有效期1小时
+jwt:
+  secret: mySecret
+  expiration: 3600
+
+---
+
+# 本地开发 profile, 连接本地 MySQL 数据库, 并且可以用 Spring 内置 LDAP Server 读取 test-server.ldif 中的用户信息
+# 常用本地 ldap 用户: bob - bobspassword; ben - benspassword (当 password encoder 为 SHA 时)
+spring:
+  profiles: local
+  datasource:
+    url: jdbc:p6spy:mysql://localhost:3306/demo?useSSL=false
+    driverClassName: com.p6spy.engine.spy.P6SpyDriver
+    username: root
+    password: password
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL5Dialect
+  ldap:
+    url: ldap://localhost:33389/
+    base.dn: dc=springframework,dc=org
+    user.dn.pattern: uid={0},ou=people
+    search.base: ou=groups
+    manager:
+      dn: 
+      password: 
+    password:
+      compare.enabled: true
+      attribute: userPassword
+      encoder: SHA
+#    embedded:
+#      base-dn: dc=springframework,dc=org
+#      port: 33389
+#      ldif: classpath:test-server.ldif
+
+---
+
+# 正式部署 profile, 仅当需要往服务器部署 war 包时使用
+spring:
+  profiles: server
+  datasource:
+    url: jdbc:p6spy:mysql://<server-host>:3306/demo?useSSL=false
+    driverClassName: com.p6spy.engine.spy.P6SpyDriver
+    username: root
+    password: password
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL5Dialect
+
+  # forumsys 为在线ldap测试服务器, 所有用户的密码都是 password, 常用 ou 和 uid 有:
+  # ou=mathematicians,dc=example,dc=com
+  # riemann, gauss, euler, euclid
+  # ou=scientists,dc=example,dc=com
+  # einstein, newton, galieleo, tesla
+  # 正式部署时请使用客户 / 合作商提供的 ldap 连接信息
+  ldap:
+    url: ldap://ldap.forumsys.com:389/
+    base.dn: dc=example,dc=com
+    user.dn.pattern: uid={0}
+    search.base: 
+    manager:
+      dn: cn=read-only-admin,dc=example,dc=com
+      password: password
+    password:
+      compare.enabled: false
+      attribute: 
+      encoder: 
+
+---
+
+# UT 专用 profile, 使用临时内存数据库, 测试 JPA 时会强制使用该 profile, 无需在 active 中指定
+spring:
+  profiles: test
+  jpa:
+    database: HSQL
+    show-sql: true
+  ldap:
+    url: ldap://localhost:33389/
+    base.dn: dc=springframework,dc=org
+    user.dn.pattern: uid={0},ou=people
+    search.base: ou=groups
+    manager:
+      dn: 
+      password: 
+    password:
+      compare.enabled: true
+      attribute: userPassword
+      encoder: SHA
+    embedded:
+      base-dn: dc=springframework,dc=org
+      port: 33389
+      ldif: classpath:test-server.ldif
